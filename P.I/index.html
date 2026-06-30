@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estacionamento CT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sky-deep:       #0b1a3b;
+      --asphalt:        #1e2d3d;
+      --asphalt-light:  #273d52;
+      --stripe:         #ffffff18;
+      --free:           #00c98d;
+      --free-glow:      #00c98d40;
+      --occupied:       #e8445a;
+      --occupied-glow:  #e8445a40;
+      --uncertain:      #f5a623;
+      --uncertain-glow: #f5a62340;
+      --pcd-blue:       #4a90d9;
+      --pcd-stripe:     #4a90d930;
+      --card-bg:        #ffffff0d;
+      --card-border:    #ffffff18;
+      --text-primary:   #eef2ff;
+      --text-secondary: #8899bb;
+      --font-display:   'Space Grotesk', sans-serif;
+      --font-mono:      'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--sky-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* STARS */
+    .stars {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(1px 1px at 10% 15%, #fff9 0%, transparent 100%),
+        radial-gradient(1px 1px at 25% 40%, #fff6 0%, transparent 100%),
+        radial-gradient(1px 1px at 40%  8%, #fff8 0%, transparent 100%),
+        radial-gradient(1px 1px at 55% 30%, #fff5 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 12%, #fff9 0%, transparent 100%),
+        radial-gradient(1px 1px at 85% 45%, #fff6 0%, transparent 100%),
+        radial-gradient(1px 1px at 92%  5%, #fff8 0%, transparent 100%),
+        radial-gradient(1px 1px at  5% 60%, #fff5 0%, transparent 100%),
+        radial-gradient(1px 1px at 18% 75%, #fff7 0%, transparent 100%),
+        radial-gradient(1px 1px at 32% 88%, #fff4 0%, transparent 100%),
+        radial-gradient(1px 1px at 48% 68%, #fff6 0%, transparent 100%),
+        radial-gradient(1px 1px at 63% 82%, #fff8 0%, transparent 100%),
+        radial-gradient(1px 1px at 78% 62%, #fff5 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 90% 78%, #fffa 0%, transparent 100%),
+        radial-gradient(1px 1px at  3% 90%, #fff6 0%, transparent 100%);
+    }
+
+    /* LAYOUT */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 2rem 4rem;
+    }
+
+    /* HEADER */
+    header { text-align: center; padding: 2.5rem 0 2rem; }
+
+    .rocket {
+      font-size: 2rem; display: block; margin-bottom: .5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    header h1 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 700; letter-spacing: -.02em;
+      background: linear-gradient(135deg, #eef2ff 30%, #8ab4f8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      display: inline-block; margin-top: .6rem;
+      font-size: .95rem; color: var(--text-secondary);
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 999px; padding: .3rem 1.2rem; letter-spacing: .04em;
+    }
+
+    /* UPDATE BAR */
+    .update-bar {
+      display: flex; align-items: center; justify-content: center;
+      gap: .6rem; margin: 0 0 2rem;
+      font-family: var(--font-mono); font-size: .78rem; color: var(--text-secondary);
+    }
+
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--free); box-shadow: 0 0 6px var(--free);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .4; transform: scale(.8); }
+    }
+    .pulse-dot.offline { background: var(--occupied); box-shadow: 0 0 6px var(--occupied); }
+
+    /* MAIN GRID */
+    .main-grid {
+      display: grid; grid-template-columns: 220px 1fr;
+      gap: 1.5rem; align-items: start;
+    }
+    @media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* SIDEBAR */
+    .stats { display: flex; flex-direction: column; gap: .75rem; }
+
+    .stat-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 14px; padding: 1rem 1.25rem; transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: #ffffff33; }
+
+    .stat-label {
+      font-size: .78rem; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: .08em; margin-bottom: .35rem;
+    }
+
+    .stat-value {
+      font-size: 2.2rem; font-weight: 700; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-value.free    { color: var(--free); }
+    .stat-value.occ     { color: var(--occupied); }
+    .stat-value.neutral { color: var(--text-primary); }
+
+    .pcd-card {
+      background: var(--card-bg); border: 1px solid #4a90d944;
+      border-radius: 14px; padding: 1rem 1.25rem;
+    }
+    .pcd-icon  { font-size: 1.4rem; margin-bottom: .3rem; }
+    .pcd-label { font-size: .78rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; }
+    .pcd-value { font-size: 2rem; font-weight: 700; color: var(--pcd-blue); line-height: 1.1; }
+    .pcd-sub   { font-size: .75rem; color: var(--text-secondary); margin-top: .25rem; }
+
+    /* PARKING LOT */
+    .lot-wrapper {
+      background: linear-gradient(160deg, var(--asphalt) 0%, var(--asphalt-light) 100%);
+      border: 1px solid var(--card-border); border-radius: 20px;
+      padding: 2rem; position: relative; overflow: hidden;
+    }
+    .lot-wrapper::before {
+      content: ''; position: absolute; inset: 0; border-radius: 20px;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, var(--stripe) 39px, var(--stripe) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, var(--stripe) 39px, var(--stripe) 40px);
+      pointer-events: none; opacity: .25;
+    }
+
+    .lot-row-label {
+      font-family: var(--font-mono); font-size: .68rem;
+      color: var(--text-secondary); letter-spacing: .1em;
+      text-transform: uppercase; margin-bottom: .75rem;
+    }
+
+    .lot-row { display: grid; gap: .75rem; margin-bottom: 1.5rem; }
+    .lot-row:last-child { margin-bottom: 0; }
+
+    /* ── VAGAS ── */
+    .vaga {
+      border-radius: 12px; border: 2px solid transparent;
+      padding: .75rem .6rem .6rem;
+      display: flex; flex-direction: column;
+      align-items: center; gap: .4rem;
+      cursor: default; position: relative;
+      min-height: 110px; justify-content: space-between;
+      transition: transform .18s, box-shadow .18s, border-color .3s, background .3s;
+    }
+    .vaga:hover { transform: translateY(-3px); }
+
+    /* Status base (vagas normais E PCD herdam daqui) */
+    .vaga.livre {
+      background: var(--free-glow);
+      border-color: var(--free);
+      box-shadow: 0 0 18px var(--free-glow);
+    }
+    .vaga.ocupada {
+      background: var(--occupied-glow);
+      border-color: var(--occupied);
+      box-shadow: 0 0 18px var(--occupied-glow);
+    }
+    .vaga.incerta {
+      background: var(--uncertain-glow);
+      border-color: var(--uncertain);
+      box-shadow: 0 0 14px var(--uncertain-glow);
+    }
+
+    /* PCD: adiciona listras diagonais azuis por cima do status */
+    .vaga.pcd::before {
+      content: ''; position: absolute; inset: 0; border-radius: 10px;
+      background: repeating-linear-gradient(
+        45deg,
+        var(--pcd-blue)22 0px, var(--pcd-blue)22 6px,
+        transparent 6px, transparent 14px
+      );
+      pointer-events: none; z-index: 0;
+    }
+
+    /* Garante que conteúdo da vaga PCD fica acima das listras */
+    .vaga.pcd > * { position: relative; z-index: 1; }
+
+    .vaga-id {
+      font-family: var(--font-mono); font-size: .68rem;
+      font-weight: 600; letter-spacing: .08em;
+      color: var(--text-secondary); align-self: flex-start;
+    }
+
+    .vaga-icon {
+      font-size: 2.2rem; line-height: 1;
+      filter: drop-shadow(0 2px 6px #0006);
+      transition: opacity .3s;
+    }
+    /* Carro some só em vagas normais livres */
+    .vaga.livre:not(.pcd) .vaga-icon { opacity: .25; }
+
+    .pcd-symbol {
+      font-size: 2rem; line-height: 1;
+      filter: drop-shadow(0 2px 6px #0006);
+    }
+    /* Ícone ♿ some quando PCD está livre */
+    .vaga.pcd.livre .pcd-symbol { opacity: .30; }
+
+    .vaga-status {
+      font-size: .7rem; font-weight: 600;
+      letter-spacing: .06em; text-transform: uppercase;
+      padding: .15rem .55rem; border-radius: 999px;
+    }
+    /* Badge de status — mesmas regras para normais e PCD */
+    .vaga.livre   .vaga-status { background: var(--free);     color: #002b1e; }
+    .vaga.ocupada .vaga-status { background: var(--occupied); color: #fff; }
+    .vaga.incerta .vaga-status { background: var(--uncertain);color: #3a2000; }
+
+    /* LEGEND */
+    .legend {
+      display: flex; gap: 1.25rem; flex-wrap: wrap;
+      justify-content: center; margin-top: 2rem;
+      padding-top: 1.5rem; border-top: 1px solid var(--card-border);
+    }
+    .legend-item { display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--text-secondary); }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 50%; }
+    .legend-dot.free { background: var(--free);     box-shadow: 0 0 5px var(--free); }
+    .legend-dot.occ  { background: var(--occupied); box-shadow: 0 0 5px var(--occupied); }
+    .legend-dot.unc  { background: var(--uncertain);box-shadow: 0 0 5px var(--uncertain); }
+    .legend-dot.pcd  { background: var(--pcd-blue); box-shadow: 0 0 5px var(--pcd-blue); }
+
+    /* LOADING / ERROR */
+    .status-msg { text-align: center; padding: 3rem 1rem; color: var(--text-secondary); font-size: .9rem; }
+    .status-msg .icon { font-size: 2rem; margin-bottom: .5rem; }
+  </style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="page">
+  <header>
+    <span class="rocket">🚀</span>
+    <h1>Estacionamento CT</h1>
+    <span class="subtitle">Visualize em tempo real!</span>
+  </header>
+
+  <div class="update-bar">
+    <span class="pulse-dot" id="pulse-dot"></span>
+    <span id="update-label">Aguardando dados…</span>
+  </div>
+
+  <div class="main-grid">
+
+    <aside class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Vagas Totais</div>
+        <div class="stat-value neutral" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vagas Livres</div>
+        <div class="stat-value free" id="stat-livres">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vagas Ocupadas</div>
+        <div class="stat-value occ" id="stat-ocupadas">—</div>
+      </div>
+      <div class="pcd-card">
+        <div class="pcd-icon">♿</div>
+        <div class="pcd-label">Vagas PCD</div>
+        <div class="pcd-value" id="stat-pcd">—</div>
+        <div class="pcd-sub" id="stat-pcd-sub">—</div>
+      </div>
+    </aside>
+
+    <div class="lot-wrapper">
+      <div id="lot-content">
+        <div class="status-msg">
+          <div class="icon">🅿️</div>
+          Carregando vagas…
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot free"></div> Livre</div>
+        <div class="legend-item"><div class="legend-dot occ"></div> Ocupada</div>
+        <div class="legend-item"><div class="legend-dot unc"></div> Incerta</div>
+        <div class="legend-item"><div class="legend-dot pcd"></div> PCD</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// =============================================================
+//  ▼ CONFIGURAÇÃO — edite aqui conforme seu projeto
+// =============================================================
+const JSON_URL        = 'status_vagas.json'; // mesmo diretório do index.html
+const REFRESH_MS      = 15000;               // atualiza a cada 15 segundos
+const PCD_IDS         = ['V01', 'V02'];      // IDs das vagas PCD do seu estacionamento
+
+// Layout manual das fileiras (null = automático, divide ao meio)
+// Exemplo para 12 vagas em 2 fileiras de 6:
+// const LAYOUT_FILEIRAS = [['V01','V02','V03','V04','V05','V06'],['V07','V08','V09','V10','V11','V12']];
+const LAYOUT_FILEIRAS = null;
+// =============================================================
+
+let dadosAtuais = null;
+
+async function fetchStatus() {
+  try {
+    const res = await fetch(`${JSON_URL}?t=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch { return null; }
+}
+
+function statusClass(s) {
+  if (s === 'LIVRE')   return 'livre';
+  if (s === 'OCUPADA') return 'ocupada';
+  return 'incerta';
+}
+
+function statusLabel(s) {
+  if (s === 'LIVRE')   return 'Livre';
+  if (s === 'OCUPADA') return 'Ocupada';
+  return 'Incerta';
+}
+
+function buildVaga(id, status, isPCD) {
+  const div = document.createElement('div');
+  // PCD ganha classe extra 'pcd' (listras), mas status real define a cor da borda
+  div.className = `vaga ${isPCD ? 'pcd ' : ''}${statusClass(status)}`;
+  div.dataset.id = id;
+
+  const idLabel = isPCD ? `${id} · ♿` : id;
+  const icone   = isPCD
+    ? `<span class="pcd-symbol">♿</span>`
+    : `<span class="vaga-icon">🚗</span>`;
+
+  div.innerHTML = `
+    <span class="vaga-id">${idLabel}</span>
+    ${icone}
+    <span class="vaga-status">${statusLabel(status)}</span>
+  `;
+  return div;
+}
+
+function buildLot(detalhes) {
+  const ids = Object.keys(detalhes);
+  const fileiras = LAYOUT_FILEIRAS
+    ? LAYOUT_FILEIRAS
+    : [ ids.slice(0, Math.ceil(ids.length / 2)), ids.slice(Math.ceil(ids.length / 2)) ];
+
+  const frag = document.createDocumentFragment();
+  fileiras.forEach((fileira, fi) => {
+    const label = document.createElement('div');
+    label.className = 'lot-row-label';
+    label.textContent = `Fileira ${fi + 1}`;
+    frag.appendChild(label);
+
+    const row = document.createElement('div');
+    row.className = 'lot-row';
+    row.style.gridTemplateColumns = `repeat(${fileira.length}, 1fr)`;
+    fileira.forEach(id => {
+      row.appendChild(buildVaga(id, detalhes[id] || 'INCERTA', PCD_IDS.includes(id)));
+    });
+    frag.appendChild(row);
+  });
+  return frag;
+}
+
+function updateSidebar(data) {
+  document.getElementById('stat-total').textContent    = data.total_vagas    ?? '—';
+  document.getElementById('stat-livres').textContent   = data.vagas_livres   ?? '—';
+  document.getElementById('stat-ocupadas').textContent = data.vagas_ocupadas ?? '—';
+
+  const det       = data.detalhes || {};
+  const statuses  = PCD_IDS.map(id => det[id]).filter(Boolean);
+  const livres    = statuses.filter(s => s === 'LIVRE').length;
+  document.getElementById('stat-pcd').textContent     = statuses.length;
+  document.getElementById('stat-pcd-sub').textContent =
+    livres === statuses.length ? 'Ambas livres'   :
+    livres === 0               ? 'Ambas ocupadas' :
+    `${livres} livre${livres > 1 ? 's' : ''}`;
+}
+
+function updateBar(data) {
+  const dot   = document.getElementById('pulse-dot');
+  const label = document.getElementById('update-label');
+  if (!data) {
+    dot.className   = 'pulse-dot offline';
+    label.textContent = 'Sem conexão com status_vagas.json';
+    return;
+  }
+  dot.className   = 'pulse-dot';
+  label.textContent = `Atualizado em ${data.ultima_atualizacao}`;
+}
+
+function render(data) {
+  updateBar(data);
+  if (!data) return;
+  updateSidebar(data);
+
+  const lot    = document.getElementById('lot-content');
+  const legend = document.querySelector('.legend');
+  lot.innerHTML = '';
+  lot.appendChild(buildLot(data.detalhes || {}));
+}
+
+async function tick() {
+  const data = await fetchStatus();
+  const json = JSON.stringify(data);
+  if (json !== dadosAtuais) { dadosAtuais = json; render(data); }
+  else if (data) updateBar(data);
+}
+
+tick();
+setInterval(tick, REFRESH_MS);
+</script>
+</body>
+</html>
